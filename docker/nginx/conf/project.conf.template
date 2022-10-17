@@ -1,0 +1,30 @@
+server {
+    listen 80;
+    listen 443 ssl;
+    ssl_certificate /etc/ssl/certs/project.crt;
+    ssl_certificate_key /etc/ssl/certs/project.key;
+    server_name ${NGINX_PROJECT}.${NGINX_HOST};
+    root /var/www/${NGINX_ROOT_DIR};
+    #add_header Strict-Transport-Security "max-age=15768000" always;
+
+    location / {
+        try_files $uri /${FPM_ENTRYPOINT}.php$is_args$args;
+    }
+
+    location ~ ^/${FPM_ENTRYPOINT}\.php(/|$) {
+        fastcgi_pass ${PHP_FPM_CONTAINER}:9000;
+        fastcgi_split_path_info ^(.+\.php)(/.*)$;
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+        include fastcgi_params;
+
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+
+        internal;
+    }
+
+    location ~ \.php$ {
+        return 404;
+    }
+}

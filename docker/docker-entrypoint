@@ -1,0 +1,38 @@
+#!/bin/sh
+set -x
+
+ls -la var/
+
+function getDbUrl()
+{
+  dbUrl=${DATABASE_URL}
+  # if no database url is provided, search in .env
+  if [ -z "$dbUrl" ]; then
+    dbUrl=$(cat .env | grep DATABASE_URL |grep -v ^[#] | cut -d '=' -f 2)
+  fi
+
+  # Print host:port
+  echo "$dbUrl" | awk -F '@|/' '{print $4;}'
+}
+
+url="$(getDbUrl)"
+if [ -z "$url" ]; then
+echo "No database url provided"
+else
+  curl "$url"
+  res=$?
+  # result = 52 ( Empty reply from server) when database is postgres
+  if  [ "$res" -le "1" ] || [ "$res" -eq "52" ];  then
+    echo "Db Migrate"
+    php bin/console doctrine:migrations:migrate --no-interaction --query-time --env=${APP_ENV:-prod}
+  else
+    echo "Host $url is not reachable"
+  fi
+fi
+
+if [ -d var/cache ]; then
+echo "Remove Cache directory"
+rm -rf var/cache/*
+fi
+
+exec "$@"

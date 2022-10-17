@@ -1,0 +1,84 @@
+version: '3.8'
+services:
+  php-fpm:
+    image: ghcr.io/syneido/dev-php8.1-fpm:latest
+    depends_on:
+      - database
+    build:
+      args:
+        APP_ENV: dev
+    volumes:
+      - ./:/var/www/
+      - ./var:/var/www/var
+      - ./docker/php/conf.d/php.dev.ini:/usr/local/etc/php/conf.d/php.ini
+      # if you develop on Linux, you may use a bind-mounted host directory instead
+      # - ./var:/srv/var:rw
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      APP_DEBUG: ${APP_DEBUG:-1}
+      XDEBUG_MODE: ${XDEBUG_MODE:-off}
+      XDEBUG_CONFIG: >-
+        client_host=172.18.208.1
+        idekey=PHPSTORM
+      # This should correspond to the server declared in PHPStorm `Preferences | Languages & Frameworks | PHP | Servers`
+      # Then PHPStorm will use the corresponding path mappings
+      PHP_IDE_CONFIG: serverName=local.project.fr
+
+  build-php:
+    image: ghcr.io/syneido/build-php8.1:latest
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+    volumes:
+      - ./:/app/
+
+  nginx:
+    volumes:
+      - ./public:/var/www/public
+
+  build-node: #COMMENT IF YOU DONT NEED NODE
+    image: node:16-alpine
+    init: true
+    volumes:
+      - ./:/app/
+    working_dir: /app
+
+  database: #COMMENT IF YOU DONT NEED POSTGRES
+    image: postgres:13-alpine
+    init: true
+    environment:
+      - POSTGRES_DB=bdd_project
+      - POSTGRES_USER=bdd_project
+      - POSTGRES_PASSWORD=bdd_project
+    volumes:
+      - db_data:/var/lib/postgresql/data:rw
+      - ./docker/data:/tmp/data
+    ports:
+      - target: 5432
+        published: 5432
+        protocol: tcp
+
+  #REMOVE COMMENT IF YOU NEED MYSQL
+  #database:
+  #  image: mysql:8.0.26
+  #  platform: linux/x86_64
+  #  init: true
+  #  environment:
+  #    - MYSQL_DATABASE=suzuki_relance
+  #    - MYSQL_USER=srelance
+  #    - MYSQL_PASSWORD=srelance
+  #    - MYSQL_ROOT_PASSWORD=root
+  #  volumes:
+  #    - db_mysql:/var/lib/mysql
+  #  ports:
+  #    - "3306:3306"
+
+  #maildev: #REMOVE COMMENT IF YOU NEED MAIL
+  #  image: mailhog/mailhog:latest
+  #  platform: linux/x86_64
+  #  ports:
+  #    - 1025:1025 # smtp server
+  #    - 8025:8025 # web ui url : http://localhost:8025/
+
+volumes:
+  db_data:
+  #db_mysql: #REMOVE COMMENT IF YOU NEED MYSQL AND ADD COMMENT VOLUMES POSTGRES

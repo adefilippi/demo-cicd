@@ -1,0 +1,42 @@
+version: '3'
+
+tasks:
+  reset:
+    desc: 'Re-create database and execute migrations'
+    cmds:
+      - task: create
+      - task: drop
+      - task: update # Will be replaced by migrate task
+      #- task: migrate
+      #- task: fixtures
+
+  create:
+    desc: 'Create database.'
+    cmds:
+      - '{{.CONSOLE}} doctrine:database:create --if-not-exists --env={{.APP_ENV}}'
+
+  migrate:
+    desc: 'Execute migrations.'
+    cmds:
+      - '{{.CONSOLE}} doctrine:migrations:migrate --no-interaction --query-time --env={{.APP_ENV}}'
+
+  update:
+    desc: 'Update schema.'
+    cmds:
+      - '{{.CONSOLE}} doctrine:schema:update --force --env={{.APP_ENV}}'
+
+  diff:
+    desc: 'Generate migration.'
+    cmds:
+      - '{{.CONSOLE}} doctrine:migrations:diff --env={{.APP_ENV}}'
+
+  drop:
+    desc: 'Drop schema.'
+    cmds:
+      - '{{.CONSOLE}} dbal:run-sql "DROP TABLE IF EXISTS doctrine_migration_versions" --env={{.APP_ENV}}'
+      - '{{.CONSOLE}} doctrine:schema:drop --force --env={{.APP_ENV}}'
+
+  fixtures:
+    desc: 'Install fixtures.'
+    cmds:
+      - '{{.CONSOLE}} hautelook:fixtures:load --no-interaction --purge-with-truncate --no-bundles --env={{.APP_ENV}}'

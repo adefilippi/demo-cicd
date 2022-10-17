@@ -1,0 +1,13 @@
+version: '3'
+
+tasks:
+  install:
+    desc: "Yarn/Building..."
+    cmds:
+      - 'docker-compose run --rm  build-node yarn install'
+
+
+  assets:
+    desc: "Assets/Building..."
+    cmds:
+      - 'docker-compose run --rm build-node yarn run dev'

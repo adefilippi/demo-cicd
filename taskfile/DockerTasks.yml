@@ -1,0 +1,60 @@
+version: '3'
+
+tasks:
+  up:
+    desc: 'Run docker containers.'
+    cmds:
+      - docker-compose up -d --remove-orphans
+
+  down:
+    desc: 'Stop docker containers.'
+    cmds:
+      - docker-compose down --remove-orphans
+
+  restart:
+    desc: 'Relaunch docker containers.'
+    cmds:
+      - task: down
+      - task: up
+      - task: ps
+
+  build:
+    desc: 'Run docker build.'
+    cmds:
+      - docker-compose build {{.CLI_ARGS}}
+
+  logs:
+    desc: "Display container's logs."
+    cmds:
+      - docker-compose logs {{.CLI_ARGS}}
+
+  ps:
+    desc: 'Show docker processes.'
+    cmds:
+      - docker-compose ps
+
+  fpm:
+    desc: 'Execute a command in a php-fpm container'
+    cmds:
+      - docker-compose exec php-fpm sh
+
+  php:
+    desc: 'Execute a command in a build-php container'
+    cmds:
+      - '{{.PHP_BUILD}} sh'
+
+  nginx:
+    desc: 'Execute a command in a nginx container'
+    cmds:
+      - docker-compose exec nginx sh
+
+  node:
+    desc: 'Execute a command in a node container'
+    cmds:
+      - docker-compose run --rm --user=node build-node sh
+
+  clean:
+    desc: 'Remove var/cache, var/log, var/sessions and vendor folders and shutting down docker containers'
+    cmds:
+      - '{{.PHP_BUILD}} rm -rf var/cache var/log var/sessions vendor'
+      - docker-compose down --volumes $(docker volume ls -f name=api-suzuki-care)--remove-orphans

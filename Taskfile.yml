@@ -1,0 +1,51 @@
+version: '3'
+
+vars:
+  PHP_BUILD: 'docker-compose run --rm build-php'
+  CONSOLE: '{{.PHP_BUILD}} php bin/console'
+
+env:
+  APP_ENV: '{{default "dev" .APP_ENV}}'
+
+includes:
+  # User prefix docker to call docker commands, like docker:up
+  docker: ./taskfile/DockerTasks.yml
+  # User prefix docker to call docker commands, like db:reset
+  db: ./taskfile/DatabaseTasks.yml
+  # User prefix docker to call docker commands, like qa:stan
+  qa: ./taskfile/QualityTasks.yml
+  # User prefix docker to call docker commands, like test:unit
+  test: ./taskfile/TestTasks.yml
+  # User prefix docker to call docker commands, like yarn:install
+  yarn: ./taskfile/YarnTasks.yml
+
+tasks:
+  install:
+    desc: 'Install project with database.'
+    cmds:
+      - task: docker:down
+      - task: docker:up
+      - task: composer:install
+      - task: yarn:install
+      - task: yarn:assets
+      - task: db:reset
+      - task: docker:ps
+
+  ci:
+    desc: 'Run C.I tasks.'
+    env:
+      APP_ENV: test
+    cmds:
+      - task: qa:die
+      - task: qa:cs
+      - task: qa:security
+      - task: qa:stan
+      - task: test:unit
+      - task: test:report
+
+  composer:install:
+    desc: 'Install composer packages.'
+    cmds:
+      - '{{.PHP_BUILD}} composer install {{.ARGS}} {{.CLI_ARGS}}'
+    vars:
+      ARGS: '{{if ne .APP_ENV "dev"}}--no-interaction --prefer-dist --optimize-autoloader{{end}}'

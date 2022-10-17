@@ -1,0 +1,31 @@
+version: '3'
+
+tasks:
+  stan:
+    desc: 'Run PHP-Stan.'
+    cmds:
+      - '{{.PHP_BUILD}} phpstan analyse src --memory-limit=-1 {{.CLI_ARGS}}'
+
+  cs:
+    desc: 'Run PHP-CS-Fixer analysis.'
+    cmds:
+      - '{{.PHP_BUILD}} php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --verbose {{.CLI_ARGS}} || exit 1'
+
+  cs:fix:
+    desc: 'Run PHP-CS-Fixer.'
+    cmds:
+      - '{{.PHP_BUILD}} php-cs-fixer fix src --verbose'
+      - '{{.PHP_BUILD}} php-cs-fixer fix migrations --verbose'
+
+  die:
+    desc: 'Check for forgotten functions [dd, dump, die]...'
+    cmds:
+      - |
+        if grep -rnw './src' -e 'dump(' -e 'die' -e 'dd('; then
+          exit 1
+        fi
+
+  security:
+    desc: 'Check packages vulnerabilities.'
+    cmds:
+      - '{{.PHP_BUILD}} symfony check:security --dir ./ {{.CLI_ARGS}}'

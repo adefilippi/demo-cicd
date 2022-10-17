@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  php-fpm:
+    image: ${CONTAINER_REGISTRY_BASE}/php-fpm
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      target: php_fpm
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+    volumes:
+      - var_log:/var/www/var:rw
+
+  nginx:
+    image: ${CONTAINER_REGISTRY_BASE}/nginx
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      target: nginx
+    environment:
+      FPM_ENTRYPOINT: index
+      PHP_FPM_CONTAINER: php-fpm
+      NGINX_PROJECT: local
+      NGINX_HOST: project.fr
+      NGINX_ROOT_DIR: public
+    ports:
+      # HTTP
+      - target: 80
+        published: 80
+        protocol: tcp
+      # HTTPS
+      - target: 443
+        published: 443
+        protocol: tcp
+    depends_on:
+      - php-fpm
+
+volumes:
+  var_log:
