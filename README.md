@@ -1,18 +1,3 @@
-# Template DOCKER PHP NGINX & POSTGRES
-## 1 - Dockerfile
-If you need entrypoint for database migrations remove the comment l.53 in docker/Dockerfile
-
-## 2 - docker-compose
-Change NGINX_HOST in docker-compose.yml by the name of your project
-
-## 2 - docker-compose.override.yml
-Change PHP_IDE_CONFIG by the NGINX_HOST
-Remove the comment from the services you need
-But you can add what you need for your project
-
-## 3 - FINAL
-YOu can remove this part for the setup template ;)
-
 # Install
 ## 1 - Docker
 You can download and install Docker and Docker-compose depending on your platform :
