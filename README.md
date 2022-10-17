@@ -1,4 +1,7 @@
 # Install
+#### Setup
+Follow this [link for setup your environnement and project](./docker/README.md)
+
 ## 1 - Docker
 You can download and install Docker and Docker-compose depending on your platform :
 
