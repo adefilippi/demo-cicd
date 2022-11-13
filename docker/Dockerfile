@@ -1,19 +1,7 @@
 ARG PHP_VERSION=8.1
 ARG CONTAINER_REGISTRY=ghcr.io/syneido
 ARG APP_ENV=prod
-ARG NODE_VERSION=14
 
-FROM ${CONTAINER_REGISTRY}/build-node:${NODE_VERSION} AS node_builder
-WORKDIR /app
-
-COPY package.json yarn.lock webpack.config.js ./
-COPY public public/
-COPY src src/
-COPY assets assets/
-
-RUN set -eux; \
-    yarn install; \
-    yarn run build
 
 FROM ${CONTAINER_REGISTRY}/build-php${PHP_VERSION}:latest AS php_builder
 
@@ -22,28 +10,16 @@ WORKDIR /app
 ENV APP_ENV=prod
 ENV APP_DEBUG=0
 
-COPY composer.json composer.lock symfony.lock ./
+COPY composer.json ./
 RUN set -eux; \
 	composer install --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress --no-suggest; \
 	composer clear-cache
 
 # copy only what we need
 COPY .env ./
-COPY bin bin/
-COPY config config/
-COPY migrations migrations/
-COPY translations translations/
 COPY public public/
-COPY templates templates/
-COPY src src/
-COPY --from=node_builder /app/public/ ./public
 
-RUN set -eux; \
-	mkdir -p var/cache var/log; \
-	composer dump-autoload --classmap-authoritative --no-dev; \
-	composer dump-env prod; \
-	composer run-script --no-dev post-install-cmd; \
-	chmod +x bin/console; sync
+RUN set -eux; sync
 
 # PHP-FPM Stage
 FROM ${CONTAINER_REGISTRY}/${APP_ENV}-php${PHP_VERSION}-fpm:latest AS php_fpm
