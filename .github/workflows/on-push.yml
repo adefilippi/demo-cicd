@@ -17,7 +17,7 @@ env:
   ENTRY_POINT_ID: 2 # entry-point id on portainer side #
 
 jobs:
-  'Build And Push':
+  'Build&Push':
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
