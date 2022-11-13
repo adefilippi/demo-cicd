@@ -1,0 +1,41 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches:
+      - develop
+
+env:
+  APP_ENV: test
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache depencies
+        uses: actions/cache@v2
+        env:
+          CACHE_NAME: cache-dependencies
+        with:
+          path: |
+            vendor/
+          key: ${{ env.CACHE_NAME }}-${{ hashFiles('composer.json') }}
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
+
+      - name: Run App
+        run: task composer:install
+
+      - name: Run Tests
+        run: task ci
+
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: code-coverage-report
+          path: reports/
+          retention-days: 1

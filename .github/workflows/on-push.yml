@@ -1,0 +1,195 @@
+name: build test and push images
+
+on:
+  push:
+    branches:
+      - release
+      - master
+
+env:
+  APP_ENV: test
+  REGISTRY: ghcr.io
+  REGISTRY_ENV: preprod
+  PACKAGE_NAME: demo-cicd
+  REGISTRY_PATH: ghcr.io/${{ github.repository }}
+  STACK_ID: 10 # Stack id on portainer side #
+  PROD_STACK_ID: 11 # Stack id on portainer side #
+  ENTRY_POINT_ID: 2 # entry-point id on portainer side #
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache docker layer
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+        with:
+          skip-save: false
+
+      - name: Docker build images
+        run: docker-compose -f docker-compose.yml build
+
+  Check:
+    needs: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cache docker layer
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+        with:
+          skip-save: true
+
+      - name: Run App
+        run: |
+          docker-compose -f docker-compose.yml up  -d
+          docker-compose ps
+
+      - name: Wait for service
+        run: |
+          while status="$(docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" "$(docker-compose ps -q php-fpm-admin)")"; do
+            case $status in
+              starting) sleep 1;;
+              healthy) exit 0;;
+              unhealthy)
+                docker-compose ps
+                docker-compose logs php-fpm-admin
+                exit 1
+              ;;
+            esac
+          done
+          exit 1
+
+      - name: Check App
+        run: |
+          echo "127.0.0.1 local.project.fr" | sudo tee -a /etc/hosts
+          HTTP_CODE=$(curl -ik -X GET 'https://local.project.fr/health-check' -o /dev/null -w '%{http_code}\n' -s)
+          echo $HTTP_CODE
+          if [ "$HTTP_CODE" = "200" ]; then
+              exit 0
+          fi
+          exit 1
+
+  Push:
+    needs: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache docker layer
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+        with:
+          skip-save: true
+
+      - name: Sets env vars
+        run: |
+          echo "REGISTRY_ENV=prod" >> $GITHUB_ENV
+        if: ${{ github.ref == 'refs/heads/master'}}
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker tag/push php-fpm
+        env:
+          IMAGE_NAME: php-fpm
+          REGISTRY_PATH_ENV: ${{ env.REGISTRY_PATH }}/${{ env.REGISTRY_ENV }}/php-fpm
+        run: |
+          docker tag ${{ env.REGISTRY_PATH }}/${{ env.IMAGE_NAME }} ${{ env.REGISTRY_PATH_ENV }}:latest
+          docker tag ${{ env.REGISTRY_PATH }}/${{ env.IMAGE_NAME }} ${{ env.REGISTRY_PATH_ENV }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_PATH_ENV }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_PATH_ENV }}:latest
+
+      - name: Docker tag/push nginx
+        env:
+          IMAGE_NAME: nginx
+          REGISTRY_PATH_ENV: ${{ env.REGISTRY_PATH }}/${{ env.REGISTRY_ENV }}/nginx
+        run: |
+          docker tag ${{ env.REGISTRY_PATH }}/${{ env.IMAGE_NAME }} ${{ env.REGISTRY_PATH_ENV }}:latest
+          docker tag ${{ env.REGISTRY_PATH }}/${{ env.IMAGE_NAME }} ${{ env.REGISTRY_PATH_ENV }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_PATH_ENV }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY_PATH_ENV }}:latest
+
+  Deploy:
+    needs: Push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sets env vars
+        run: |
+          echo "STACK_ID=${{ env.PROD_STACK_ID }}" >> $GITHUB_ENV
+        if: ${{ github.ref == 'refs/heads/master'}}
+
+      - name: Login to portainer
+        run: |
+          JWT=$(curl -s -X POST '${{ secrets.PORTAINTER_API }}/auth' \
+          --data-raw '{
+              "username": "${{ secrets.PORTAINER_LOGIN }}",
+              "password": "${{ secrets.PORTAINER_PASSWORD }}"
+          }' | jq -r '.jwt')
+          echo "TOKEN=$JWT" >> $GITHUB_ENV
+
+      - name: Stop portainer stack
+        run: |
+          curl -X POST '${{ secrets.PORTAINTER_API }}/stacks/${{ env.STACK_ID }}/stop' \
+          --header 'Authorization: Bearer ${{ env.TOKEN }}' -s
+
+      - name: Update portainer nginx image
+        env:
+          REGISTRY_PATH_ENV: ${{ env.REGISTRY_PATH }}/${{ env.REGISTRY_ENV }}/nginx:latest
+        run: |
+          HTTP_CODE=$(curl -i -X POST '${{ secrets.PORTAINTER_API }}/endpoints/${{ env.ENTRY_POINT_ID }}/docker/images/create?fromImage=${{ env.REGISTRY_PATH_ENV }}' \
+          --header 'Authorization: Bearer ${{ env.TOKEN }}' \
+          --header 'X-Registry-Auth: ${{ secrets.PORTAINTER_REGISTRY_KEY }}' \
+          -o /dev/null -w '%{http_code}\n' -s)
+          if [ "$HTTP_CODE" = "200" ]; then
+              exit 0
+          fi
+          echo "HTTP_CODE=$HTTP_CODE"
+          exit 1
+
+      - name: Update portainer php-fpm image
+        env:
+          REGISTRY_PATH_ENV: ${{ env.REGISTRY_PATH }}/${{ env.REGISTRY_ENV }}/php-fpm:latest
+        run: |
+          HTTP_CODE=$(curl -i -X POST '${{ secrets.PORTAINTER_API }}/endpoints/${{ env.ENTRY_POINT_ID }}/docker/images/create?fromImage=${{ env.REGISTRY_PATH_ENV }}' \
+          --header 'Authorization: Bearer ${{ env.TOKEN }}' \
+          --header 'X-Registry-Auth: ${{ secrets.PORTAINTER_REGISTRY_KEY }}' \
+          -o /dev/null -w '%{http_code}\n' -s)
+          if [ "$HTTP_CODE" = "200" ]; then
+              exit 0
+          fi
+          echo "HTTP_CODE=$HTTP_CODE"
+          exit 1
+
+      - name: Start portainer stack
+        run: |
+          HTTP_CODE=$(curl -i -X POST '${{ secrets.PORTAINTER_API }}/stacks/${{ env.STACK_ID }}/start' \
+          --header 'Authorization: Bearer ${{ env.TOKEN }}' \
+          -o /dev/null -w '%{http_code}\n' -s)
+          if [ "$HTTP_CODE" = "200" ]; then
+              exit 0
+          fi
+          echo "HTTP_CODE=$HTTP_CODE"
+          exit 1
+
+  Clean:
+    needs: Push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove old packages
+        uses: snok/container-retention-policy@v1
+        env:
+          PACKAGE_PATH: ${{ env.PACKAGE_NAME }}/${{ env.REGISTRY_ENV }}
+        with:
+          image-names: ${{ env.PACKAGE_PATH }}/php-fpm, ${{ env.PACKAGE_PATH }}/nginx,
+          cut-off: One hour ago UTC
+          keep-at-least: 3
+          account-type: personal
+          token: ${{ secrets.PACKAGE_TOKEN }}
