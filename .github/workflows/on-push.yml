@@ -23,27 +23,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Cache docker layer
-        uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-        with:
-          skip-save: false
-
       - name: Docker build images
         run: docker-compose -f docker-compose.yml build
-
-  Check:
-    needs: Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Cache docker layer
-        uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-        with:
-          skip-save: true
 
       - name: Run App
         run: |
@@ -52,13 +33,13 @@ jobs:
 
       - name: Wait for service
         run: |
-          while status="$(docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" "$(docker-compose ps -q php-fpm-admin)")"; do
+          while status="$(docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" "$(docker-compose ps -q php-fpm)")"; do
             case $status in
               starting) sleep 1;;
               healthy) exit 0;;
               unhealthy)
                 docker-compose ps
-                docker-compose logs php-fpm-admin
+                docker-compose logs php-fpm
                 exit 1
               ;;
             esac
@@ -74,16 +55,6 @@ jobs:
               exit 0
           fi
           exit 1
-
-  Push:
-    needs: Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Cache docker layer
-        uses: satackey/action-docker-layer-caching@v0.0.11
-        continue-on-error: true
-        with:
-          skip-save: true
 
       - name: Sets env vars
         run: |
@@ -118,7 +89,7 @@ jobs:
           docker push ${{ env.REGISTRY_PATH_ENV }}:latest
 
   Deploy:
-    needs: Push
+    needs: Build
     runs-on: ubuntu-latest
     steps:
       - name: Sets env vars
@@ -180,7 +151,7 @@ jobs:
           exit 1
 
   Clean:
-    needs: Push
+    needs: Build
     runs-on: ubuntu-latest
     steps:
       - name: Remove old packages
