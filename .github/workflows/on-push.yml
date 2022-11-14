@@ -94,7 +94,8 @@ jobs:
     steps:
       - name: Sets env vars
         run: |
-          echo "STACK_ID=${{ env.PROD_STACK_ID }}" >> $GITHUB_ENV
+          echo "STACK_ID=${{ env.PROD_STACK_ID }}" >> $GITHUB_ENV;
+          echo "REGISTRY_ENV=prod" >> $GITHUB_ENV
         if: ${{ github.ref == 'refs/heads/master'}}
 
       - name: Login to portainer
