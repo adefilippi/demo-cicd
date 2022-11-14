@@ -12,7 +12,7 @@ env:
   REGISTRY_ENV: preprod
   PACKAGE_NAME: demo-cicd
   REGISTRY_PATH: ghcr.io/${{ github.repository }}
-  STACK_ID: 10 # Stack id on portainer side #
+  STACK_ID: 12 # Stack id on portainer side #
   PROD_STACK_ID: 11 # Stack id on portainer side #
   ENTRY_POINT_ID: 2 # entry-point id on portainer side #
 
