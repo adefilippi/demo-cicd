@@ -6,26 +6,14 @@ services:
     environment:
       FPM_ENTRYPOINT: index
       PHP_FPM_CONTAINER: php-fpm
-      NGINX_PROJECT: www.
-      NGINX_HOST: project.fr
+      NGINX_PROJECT: prod-demo
+      NGINX_HOST: lunamy.com
       NGINX_ROOT_DIR: public
     depends_on:
       - php-fpm
     ports:
-      - "xxxx:80"
-      - "xxxx:443"
+      - "8110:80"
+      - "8111:443"
 
   php-fpm:
     image: ${CONTAINER_REGISTRY_BASE}/php-fpm:latest
-    environment:
-      APP_ENV: dev #replace by prod for prod
-      APP_DEBUG: 0
-      APP_SECRET: ${APP_SECRET}
-      DATABASE_URL: ${DATABASE_URL}
-      PREPROD_PASSWORD: ${PREPROD_PASSWORD}
-      #MAILER_DSN: smtp://172.17.0.1:25 #REMOVE COMMENT IF YOU NEED MAIL
-    volumes:
-      - var_log:/var/www/var
-
-volumes:
-  var_log:

@@ -17,7 +17,7 @@ env:
   ENTRY_POINT_ID: 2 # entry-point id on portainer side #
 
 jobs:
-  Build&Push:
+  BuildandPush:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -89,7 +89,7 @@ jobs:
           docker push ${{ env.REGISTRY_PATH_ENV }}:latest
 
   Deploy:
-    needs: Build
+    needs: BuildandPush
     runs-on: ubuntu-latest
     steps:
       - name: Sets env vars
@@ -151,7 +151,7 @@ jobs:
           exit 1
 
   Clean:
-    needs: Build
+    needs: BuildandPush
     runs-on: ubuntu-latest
     steps:
       - name: Remove old packages
